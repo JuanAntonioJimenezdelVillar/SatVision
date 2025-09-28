@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Segmentación de Imágenes Satelitales</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: linear-gradient(0deg, #00072d, #001c55);
+    }
+    .jumbotron {
+      background: linear-gradient(90deg, #0a2472 0%, #0e6ba8 100%);
+      color: white;
+      padding: 2rem 1rem;
+      font-weight: 1000;
+    }
+    .upload-card {
+      cursor: pointer;
+      background-color: #d6d6d6;
+      border: 5px solid #506a90;
+      border-radius: 1rem;
+      transition: border-color 0.3s;
+    }
+    .custom-alert-success {
+      background-color: #d6d6d6;
+      color: #777;
+      border: 5px solid #506a90;
+      border-radius: 1rem;
+    }
+    .custom-alert-info {
+      background-color: #d6d6d6;
+      color: #777;
+      border: 5px solid #506a90;
+      border-radius: 1rem;
+    }
+
+    .upload-card:hover {
+      border-color: #0e6ba8;
+    }
+    .upload-card .card-body {
+      padding: 2rem;
+    }
+    .upload-placeholder {
+      font-size: 1.2rem;
+      color: #777;
+    }
+    .container {
+      background-color: transparent !important;
+    }
+    #preview {
+      max-width: 100%;
+      height: auto;
+      display: none;
+      margin-top: 1rem;
+    }
+    .arrow-icon {
+    display: inline-block;
+    font-size: 1.8rem;
+    font-weight: bold;
+    transition: transform 0.3s ease;
+    }
+    .arrow-icon.collapsed {
+      transform: rotate(0deg);
+    }
+    .arrow-icon.expanded {
+      transform: rotate(90deg);
+    }
+
+    .btn-show-image {
+      background-color: #506a90;
+      color: white;
+      border: 5px solid #506a90;
+      border-radius: 1rem;
+      transition: background-color 0.3s, border-color 0.3s;
+    }
+
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <a class="navbar-brand" href="#">SatVision</a>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarColor01">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarColor01">
+      <ul class="navbar-nav mr-auto">
+        <li class="nav-item active">
+          <a class="nav-link" href="#">Inicio <span class="sr-only">(current)</span></a>
+        </li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- Jumbotron -->
+  <div class="jumbotron text-center">
+    <h1 class="display-4">Procesamiento de Imágenes con IA</h1>
+    <p class="lead">Sube tu imagen y descubre los resultados del análisis</p>
+  </div>
+
+  <!-- Content -->
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-md-8">
+        <!-- Tarjeta de subida -->
+        <div class="card upload-card text-center" id="uploadCard">
+          <div class="card-body">
+            <h5 class="card-title upload-placeholder" id="cardPlaceholder">Haz clic aquí para subir una imagen</h5>
+            <img id="preview" src="">
+          </div>
+        </div>
+        <!-- Formulario oculto para manejar la carga -->
+        <form id="uploadForm" method="post" enctype="multipart/form-data" style="display: none;">
+          <input type="file" id="image-input" name="image" accept="image/*">
+        </form>
+        <div id="result" class="mt-4"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="result" class="mt-4"></div>
+
+  <div class="modal fade" id="resultModal" tabindex="-1" role="dialog" aria-labelledby="resultModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="resultModalLabel"></h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body text-center">
+        <img id="resultImage" src="" alt="Imagen Procesada" class="img-fluid">
+      </div>
+    </div>
+  </div>
+</div>
+
+  <!-- Bootstrap JS y dependencias via CDN -->
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+  <script>
+  const uploadCard = document.getElementById('uploadCard');
+  const imageInput = document.getElementById('image-input');
+  const previewImg = document.getElementById('preview');
+  const cardPlaceholder = document.getElementById('cardPlaceholder');
+
+  uploadCard.addEventListener('click', () => {
+    imageInput.click();
+  });
+
+  imageInput.addEventListener('change', () => {
+  if (imageInput.files && imageInput.files[0]) {
+    const file = imageInput.files[0];
+    const fileName = file.name.toLowerCase();
+    if (fileName.endsWith('.tif') || fileName.endsWith('.tiff')) {
+      previewImg.style.display = 'none';
+      cardPlaceholder.textContent = "Imagen TIFF seleccionada. La vista previa estará disponible tras el procesamiento.";
+      uploadImage();
+    } else {
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        previewImg.src = e.target.result;
+        previewImg.style.display = 'block';
+        cardPlaceholder.textContent = "Imagen seleccionada. Haga clic para subir otra imagen";
+      }
+      reader.readAsDataURL(file);
+      uploadImage();
+    }
+  }
+});
+
+  function formatStatistics(text) {
+  // Separa el texto por líneas y crea párrafos
+  const lines = text.split('\n').filter(l => l.trim().length > 0);
+  return lines.map(l => `<p class="mb-1">${l}</p>`).join('');
+}
+  
+  async function uploadImage() {
+    const formData = new FormData();
+    if(imageInput.files.length === 0) return;
+    formData.append('image', imageInput.files[0]);
+
+    const resultDiv = document.getElementById('result');
+
+    resultDiv.innerHTML = `
+      <div class="alert alert-info custom-alert-info" role="alert">
+        <div class="d-flex align-items-center">
+          <div class="spinner-border text-primary mr-2" role="status">
+            <span class="sr-only">Cargando...</span>
+          </div>
+          <strong>Procesando imagen, por favor espera...</strong>
+        </div>
+      </div>`;
+
+    const response = await fetch('/upload', {
+      method: 'POST',
+      body: formData
+    });
+    const data = await response.json();
+    if(response.ok) {
+      const formattedStats = formatStatistics(data.statistics);
+      resultDiv.innerHTML = `<div class="alert alert-success custom-alert-success" role="alert">
+                              <h4>Resultados</h4>
+                              <p><strong>${data.message}</strong></p>
+                              <p><strong>Imagen subida:</strong> ${data.uploaded_image}</p>
+                              <button id="showResult" class="btn btn-show-image mb-3">Ver Imagen Procesada</button>
+                              <div class="card">
+                                  <div class="card-header">
+                                      <a class="btn btn-link p-0" data-toggle="collapse" href="#statsCollapse" role="button" aria-expanded="false" aria-controls="statsCollapse">
+                                        Estadísticas de la imagen <span id="arrowIcon" class="arrow-icon collapsed">></span>
+                                      </a>
+                                  </div>
+                                  <div class="collapse" id="statsCollapse">
+                                      <div class="card-body" style="white-space: pre-wrap;">
+                                          ${formattedStats}
+                                      </div>
+                                  </div>
+                              </div>
+                            </div>`;
+      document.getElementById('showResult').addEventListener('click', () => {
+          document.getElementById('resultImage').src = `/results/${data.uploaded_image}`;
+          $('#resultModal').modal('show');
+      });
+      const originalName = imageInput.files[0].name;
+      if (originalName.toLowerCase().endsWith('.tif') || originalName.toLowerCase().endsWith('.tiff')) {
+        const pngName = originalName.replace(/\.tif(f)?$/i, '.png');
+        previewImg.src = `/images/${pngName}`;
+        console.log(`Imagen procesada guardada como: ${previewImg.src}`);
+        previewImg.style.display = 'block';
+        cardPlaceholder.textContent = "Vista previa generada tras el procesamiento";
+      }
+
+    } else {
+      resultDiv.innerHTML = `
+                            <div class="alert alert-danger" role="alert">
+                              <h4 class="alert-heading">¡Error!</h4>
+                              <p>Ocurrió un problema al procesar la imagen.</p>
+                              <hr>
+                              <ul class="list-unstyled mb-0">
+                                <li><strong>Mensaje:</strong> ${data.error || 'No se proporcionó mensaje'}</li>
+                                <li><strong>Detalles:</strong> ${data.details || 'No hay información adicional'}</li>
+                              </ul>
+                            </div>`;
+    }
+  }
+  $(document).on('show.bs.collapse', '#statsCollapse', function(){
+  $('#arrowIcon').removeClass('collapsed').addClass('expanded');
+  });
+  $(document).on('hide.bs.collapse', '#statsCollapse', function(){
+    $('#arrowIcon').removeClass('expanded').addClass('collapsed');
+  });
+
+  </script>
+</body>
+</html>
